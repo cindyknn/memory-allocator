@@ -274,7 +274,7 @@ mm_realloc(void *ptr, size_t size)
 	if (csize > 0) {
 		/* Only memcpy if not realloc in place. */
 		if (newptr != ptr)
-			memcpy(newptr, ptr, oldsize);
+			memmove(newptr, ptr, oldsize);
 
 		/* Adjust block size to include overhead and alignment reqs. */
 		size_t asize;
