@@ -1,13 +1,85 @@
 COMP 321 Project 5: Malloc
-<Replace with your name(s) and NetID(s).>
+<Cindy Nguyen (cn32)>
 
 ---(Do not write lines of text that exceed the width of this line.)------------
 
 DESIGN DESCRIPTION
 
-<Replace with an English description of your submission's design.> 
+My dynamic memory allocator keeps track of free blocks using an explicit free 
+list containing segregated lists. To implement the explicit free list, I created 
+a struct "fblock" representing the payload structure of a free block, containing 
+2 pointers: 1 to the previous free block and 1 to the next free block in its 
+segregated list. A global pointer variable "flist" represents the start of the 
+explicit free list and points to its first segregated free list, which has the 
+smallest size. There are 6 segregated free lists, implemented as circular doubly 
+linked lists, separated by block sizes that are powers of 2. Specifically, the 6 
+size bins used are 32 (2^5), 128 (2^7), 512 (2^9), 2048 (2^11), 16384 (2^14), and 
+above. These bin sizes was selected because they appropriately cover the range of 
+possible allocation sizes as observed from the test traces, and were empirically 
+tested to be most efficient. The segregated list dummy heads are initialized as 
+struct fblocks before the prologue and epilogue blocks (see function "mm_init"). 
+In each head, the previous and next pointers are set to the list head pointer 
+itself, signifying that the segregated lists are initially empty.
+
+My placement policy is first-fit, where the allocator identifies the appropriate 
+size bin for the current size, traverses from the start of this segregated list to 
+try to find the first free block whose size is large enough and return a pointer 
+to it (see function "find_fit"). If no fit is found, then it goes to the next 
+larger size bin and repeats this process until the final largest size bin has been 
+traversed. I selected this placement policy because using first-fit search in 
+segregated free lists approximates best-fit search, which provides an ideal balance 
+between utilization and througput.
+
+My allocator splits free blocks when the remaining block, which is the difference 
+between the block size and the requested size, is at least the minimum block size, 
+in my case is 2 DSIZEs. If yes, then this remaining block is inserted back into the 
+free list, but if not, then the whole block is allocation without splitting (see 
+function "place"). This helps minimize internal fragmentation and utilizes all 
+available extra space for possible smaller-size allocations. The allocator coalesces 
+free blocks by removing any adjacent previous and/or next free block(s) that the 
+current block can coalesce with from the free list, then inserts the newly-coalesced 
+larger free block back into free list (see function "coalesce"). This ensures that 
+the free blocks are consistently in the correct segregated lists and allows any 
+larger-size allocations to use this total space.
+
+My insertion policy for free blocks in the explicit list is the FIFO policy: 
+inserting a free block to the end of the correct segregated list corresponding to 
+its size bin (see function "ins_flist"), and finding the block to allocate by 
+iterating from the start of the correct size bin segregated list until we find 
+the first fit for the requested size (see function "find_fit"). I selected this 
+insertion policy because it reduces fragmentation and was empirically tested to 
+be most efficient.
+
+For a malloc request, my allocator has an additional functionality of rounding 
+the smaller block sizes to a perfect power of 2, where smaller is defined to be 
+a size less than the third size bin (512) out of my 6 bins. Specifically if the 
+requested size is between a pair of consecutive powers of 2 in the range of 16 
+(2^4) to 512 (2^9), then it is rounded to the nearest larger power of 2. This 
+significantly enhances my allocator's efficiency and allows my smaller-size 
+segregated lists to be traversed more conveniently. For a free request, my allocator 
+implements the default immediate coalescing scheme (see function "mm_free"). For a 
+realloc request, my allocator has 2 additional functionalities (see function 
+"mm_realloc"). First, it checks if the previous and/or next block is free, and if 
+the total size after coalescing them with the current block is large enough for the 
+realloc size, then this space would be used (realloc "in place") instead of 
+malloc'ing a new space. Second, if the current block is the last block on the heap 
+(the next block is the epilogue), then it only extends the heap by the extra amount 
+that is the difference between the current size and the new realloc size, rather 
+than extending by the whole realloc size. These functionalities greatly improves 
+both space utilization and througput by minimizing external fragmentation and the 
+overhead of malloc too many times.
+
 
 checkheap() DESCRIPTION
 
-<Replace with an English description of your submission's heap consistency
- checker.>
+My heap consistency checker scans the heap and checks it for consistency, printing 
+out a descriptive error message when it discovers an inconsistency in the heap. 
+It checks if every block is 8-byte aligned properly. It checks if the block header 
+matches footer, including if block size and allocation bit are correct. It checks 
+if any allocated blocks overlap. It checks if the pointers in a heap block point 
+to valid heap addresses. It checks if every block in the free list is marked as free. 
+It checks if there any contiguous free blocks that somehow escaped coalescing. 
+It checks if every free block is actually in the free list. It checks if the pointers 
+in the free list point to valid free blocks. If the block is free, it checks if the 
+previous and next pointers point to valid free blocks. In all segregated lists in 
+the explicit free list, it checks if every block is in the correct size bin.
