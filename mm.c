@@ -1,6 +1,4 @@
 /*
- * COMP 321 Project 3: Malloc
- *
  * Simple, 32-bit and 64-bit clean allocator based on an implicit free list,
  * first fit placement, and boundary tag coalescing, as described in the
  * CS:APP3e text.  Blocks are aligned to double-word boundaries.  This
